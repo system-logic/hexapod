@@ -1,0 +1,8 @@
+*.FCBak
+__pycache__/
+*.pyc
+build_tmp/
+vision/stereo_calib.npz
+vision/logs/
+vision/*.pt
+vision/*_ncnn_model/

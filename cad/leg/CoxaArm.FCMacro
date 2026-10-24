@@ -1,0 +1,60 @@
+# ============================================================
+#  CoxaArm — coxa arm (yaw joint). PRINT.
+#  IMPORTANT: mounts on the HORN (output) of servo S1, which rotates.
+#  (An earlier version bolted to the servo body and would not have rotated.)
+# ============================================================
+import FreeCAD as App
+import Part
+
+doc = App.ActiveDocument
+if doc is None:
+    doc = App.newDocument("SpiderLeg")
+
+V = App.Vector
+
+# ---------- PARAMETERS (editable) ----------
+base_x, base_y, base_z = 38.0, 32.0, 9.0       # base
+tail_x, tail_y, tail_z = 48.0, 20.0, 9.0       # tail that carries the FemurBracket
+tail_off_x, tail_off_y = 24.0, 6.0
+rib_t, rib_h = 4.0, 16.0                        # stiffening ribs
+rib_len, rib_x0 = 30.0, 28.0                    # rib length and X start (behind the pocket)
+rib_y = (7.0, 21.0)                             # y7-11 and y21-25: centres 9 and 23 = 16 +/- 7
+
+# ---- interface dimensions (identical in all parts) ----
+S1_X, S1_Y = 16.0, 16.0                         # centre of the S1 output on the arm
+HORN_R, HORN_HOLE_D, HORN_CLR = 7.0, 2.4, 9.0   # horn: 4 x M2 + centre clearance
+HORN_POCKET_D, HORN_POCKET_DEPTH = 22.0, 4.5    # pocket for the round horn
+MOUNT_X, MOUNT_Y, MOUNT_D = 64.0, (9.0, 23.0), 5.2   # FemurBracket holes (M5)
+
+# ---------- GEOMETRY ----------
+coxa = Part.makeBox(base_x, base_y, base_z)
+tail = Part.makeBox(tail_x, tail_y, tail_z)
+tail.translate(V(tail_off_x, tail_off_y, 0))
+coxa = coxa.fuse(tail)
+
+# seat on the S1 horn (output): shaft clearance + 4 x M2 + pocket
+coxa = coxa.cut(Part.makeCylinder(HORN_CLR / 2, base_z + 2, V(S1_X, S1_Y, -1)))
+for dx, dy in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+    coxa = coxa.cut(Part.makeCylinder(HORN_HOLE_D / 2, base_z + 2, V(S1_X + dx, S1_Y + dy, -1)))
+coxa = coxa.cut(Part.makeCylinder(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, V(S1_X, S1_Y, -0.05)))
+
+# FemurBracket holes (M5, vertical)
+for my in MOUNT_Y:
+    coxa = coxa.cut(Part.makeCylinder(MOUNT_D / 2, base_z + 2, V(MOUNT_X, my, -1)))
+
+# stiffening ribs: symmetric about S1_Y = 16, centred on the bolt lines y9 / y23;
+# they start behind the d22 pocket, so they clear the horn holes and the pocket
+for ry in rib_y:
+    r = Part.makeBox(rib_len, rib_t, rib_h)
+    r.translate(V(rib_x0, ry, 0))
+    coxa = coxa.fuse(r)
+
+# ---------- OUTPUT ----------
+obj = Part.show(coxa, "CoxaArm")
+doc.recompute()
+try:
+    import FreeCADGui as Gui
+    Gui.SendMsgToActiveView("ViewFit")
+except Exception:
+    pass
+print("CoxaArm: done. Pocket/horn side down onto the S1 output; print base-down.")

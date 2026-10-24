@@ -1,0 +1,172 @@
+# ============================================================
+#  Assembly_SpiderLeg — THE WHOLE LEG ASSEMBLED (real DS3218 flange).
+#  Servos are held by their flanges in brackets; links sit on horns.
+#  S1 stands on a chassis pad (on the robot it is bolted to the body).
+#  POSE = (yaw, lift, bend), degrees.
+#
+#  The part builders below are copies of the stand-alone part macros
+#  (CoxaArm, FemurBracket, Femur, Tibia, DS3218, Horn). If you change a
+#  dimension in a part macro, change it here as well.
+# ============================================================
+import FreeCAD as App
+import Part
+try:
+    import FreeCADGui as Gui
+    HAVE_GUI = True
+except Exception:
+    HAVE_GUI = False
+
+doc = App.ActiveDocument
+if doc is None:
+    doc = App.newDocument("SpiderLeg")
+V = App.Vector
+POSE = (0.0, 0.0, 10.0)
+# Examples: (0, 0, 10)  standing — femur level, tibia down, foot slightly out
+#           (0, 18, 80) reaching — femur raised, tibia pointing outward
+# yaw  = coxa rotation about the vertical S1 axis
+# lift = femur angle, positive = up
+# bend = tibia angle relative to the femur, 0 = straight down when the femur is level
+
+# ---- dimensions ----
+SV_L, SV_W, SV_H = 40.0, 20.0, 40.5
+EAR_W, EAR_T, FLANGE_Z = 54.5, 2.5, 27.7
+HOLE_DX, HOLE_DY, FLANGE_D = 49.5, 10.0, 3.2
+HOX, HOY = HOLE_DX / 2, HOLE_DY / 2
+CUT_L, CUT_W = 42.0, 22.0
+SHAFT_X, SHAFT_Y, SPLINE_D, SHAFT_EXP = 20.0, 10.0, 6.0, 5.0
+HORN_R, HORN_HOLE_D, HORN_CLR = 7.0, 2.4, 9.0
+HORN_POCKET_D, HORN_POCKET_DEPTH, HUB_T = 22.0, 4.5, 8.0
+HORN_DISC_D, HORN_DISC_T = 22.0, 5.0
+COXA_S1 = (16.0, 16.0); COXA_MNT_X, COXA_MNT_Y = 64.0, (9.0, 23.0)
+RIB_LEN, RIB_X0, RIB_Y, RIB_T, RIB_H = 30.0, 28.0, (7.0, 21.0), 4.0, 16.0
+L_FEM, L_TIB, FEM_T, FEM_W, TIB_T = 75.0, 100.0, 6.0, 30.0, 5.0
+FB_BX, FB_BY, FB_BZ, FB_WALL_T, FB_YW, FB_WALL_H = 62.0, 26.0, 4.0, 4.0, 26.0, 46.0
+FB_S2_X, FB_S2_Z, FB_BHX, FB_BHY = 31.0, 28.0, 31.0, (6.0, 20.0)
+FB_SLOT_Y, FB_SLOT_CLR = (4.0, 18.0), 0.4
+FB_FLANGE_Y = FB_YW - FB_WALL_T
+TOPSEC = SV_H - FLANGE_Z
+LINK_OFFSET = TOPSEC + HORN_DISC_T
+
+def box(x, y, z, p=(0, 0, 0)): return Part.makeBox(x, y, z, V(*p))
+def cyl(r, h, p=(0, 0, 0), d=(0, 0, 1)): return Part.makeCylinder(r, h, V(*p), V(*d))
+def moved(s, v): s = s.copy(); s.translate(V(*v)); return s
+def rotated(s, c, a, ang): s = s.copy(); s.rotate(V(*c), V(*a), ang); return s
+
+def flange_wall(s, cx, cz, y0, y1):
+    h = (y1 - y0) + 2
+    s = s.cut(moved(box(CUT_L, h, CUT_W), (cx - CUT_L / 2, y0 - 1, cz - CUT_W / 2)))
+    for hx in (cx - HOX, cx + HOX):
+        for hz in (cz - HOY, cz + HOY):
+            s = s.cut(cyl(FLANGE_D / 2, h, (hx, y0 - 1, hz), (0, 1, 0)))
+    return s
+
+def servo():
+    s = box(SV_L, SV_W, SV_H).fuse(moved(box(EAR_W, SV_W, EAR_T), (-(EAR_W - SV_L) / 2, 0, FLANGE_Z)))
+    for hx in (SHAFT_X - HOX, SHAFT_X + HOX):
+        for hy in (SHAFT_Y - HOY, SHAFT_Y + HOY):
+            s = s.cut(cyl(FLANGE_D / 2, EAR_T + 2, (hx, hy, FLANGE_Z - 1)))
+    s = s.fuse(cyl(7.5, 3, (SHAFT_X, SHAFT_Y, SV_H)))
+    s = s.fuse(cyl(SPLINE_D / 2, SHAFT_EXP, (SHAFT_X, SHAFT_Y, SV_H + 3)))
+    for cx in (4.5, 35.5):
+        for cy in (4.5, 15.5):
+            s = s.cut(cyl(1.1, 2, (cx, cy, SV_H - 2)))
+    return s
+
+def horn():
+    h = cyl(HORN_DISC_D / 2, HORN_DISC_T, (0, 0, 0), (0, 1, 0))
+    h = h.cut(cyl(3, HORN_DISC_T + 2, (0, -1, 0), (0, 1, 0)))
+    for dx, dz in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+        h = h.cut(cyl(HORN_HOLE_D / 2, HORN_DISC_T + 2, (dx, -1, dz), (0, 1, 0)))
+    return h
+
+def coxa():
+    c = box(38, 32, 9).fuse(moved(box(48, 20, 9), (24, 6, 0)))
+    cx, cy = COXA_S1
+    c = c.cut(cyl(HORN_CLR / 2, 11, (cx, cy, -1)))
+    for dx, dy in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+        c = c.cut(cyl(HORN_HOLE_D / 2, 11, (cx + dx, cy + dy, -1)))
+    c = c.cut(cyl(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, (cx, cy, -0.05)))
+    for my in COXA_MNT_Y:
+        c = c.cut(cyl(2.6, 11, (COXA_MNT_X, my, -1)))
+    for ry in RIB_Y:
+        c = c.fuse(moved(box(RIB_LEN, RIB_T, RIB_H), (RIB_X0, ry, 0)))
+    return c
+
+def bracket():
+    b = box(FB_BX, FB_BY, FB_BZ).fuse(moved(box(FB_BX, FB_WALL_T, FB_WALL_H), (0, FB_YW - FB_WALL_T, 0)))
+    b = b.fuse(box(10, FB_YW - FB_WALL_T, 16)).fuse(moved(box(10, FB_YW - FB_WALL_T, 16), (FB_BX - 10, 0, 0)))
+    for hy in FB_BHY:
+        b = b.cut(cyl(2.6, FB_BZ + 2, (FB_BHX, hy, -1)))
+    b = flange_wall(b, FB_S2_X, FB_S2_Z, FB_YW - FB_WALL_T, FB_YW)
+    for sy in FB_SLOT_Y:   # slots for the CoxaArm ribs
+        b = b.cut(moved(box(27.0, RIB_T + 2 * FB_SLOT_CLR, 8.5), (-0.5, sy - FB_SLOT_CLR, -0.5)))
+    return b
+
+def femur():
+    f = moved(box(L_FEM + 48, FEM_T, FEM_W), (-16, 0, -FEM_W / 2))
+    f = f.fuse(cyl(14, HUB_T, (0, 0, 0), (0, 1, 0)))
+    for dx, dz in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+        f = f.cut(cyl(HORN_HOLE_D / 2, HUB_T + 2, (dx, -1, dz), (0, 1, 0)))
+    f = f.cut(cyl(HORN_CLR / 2, HUB_T + 2, (0, -1, 0), (0, 1, 0)))
+    f = f.cut(cyl(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, (0, -0.05, 0), (0, 1, 0)))
+    f = flange_wall(f, L_FEM, 0, 0, FEM_T)
+    return f.cut(moved(box(28, FEM_T + 2, 12), (18, -1, -6)))
+
+def tibia():
+    foot_h = 10.0; bb = -(L_TIB - foot_h)
+    t = moved(box(22, TIB_T, 16), (-11, 0, -8)).fuse(moved(box(14, TIB_T, -bb), (-7, 0, bb)))
+    t = t.fuse(cyl(14, HUB_T, (0, 0, 0), (0, 1, 0)))
+    for dx, dz in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+        t = t.cut(cyl(HORN_HOLE_D / 2, HUB_T + 2, (dx, -1, dz), (0, 1, 0)))
+    t = t.cut(cyl(HORN_CLR / 2, HUB_T + 2, (0, -1, 0), (0, 1, 0)))
+    t = t.cut(cyl(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, (0, -0.05, 0), (0, 1, 0)))
+    t = t.fuse(cyl(10, foot_h, (0, TIB_T / 2, -L_TIB), (0, 0, 1)))
+    t = t.cut(cyl(5.5, 6, (0, TIB_T / 2, -L_TIB - 0.05), (0, 0, 1)))
+    return t.cut(cyl(4, TIB_T + 2, (0, -1, -(L_TIB / 2)), (0, 1, 0)))
+
+# ---- placement ----
+yaw, fem_a, tib_a = POSE
+def place(s, n, tr=0):
+    o = Part.show(s, n)
+    if HAVE_GUI and tr:
+        try: o.ViewObject.Transparency = tr
+        except Exception: pass
+
+def servo_flange():
+    return rotated(moved(servo(), (-SHAFT_X, -SHAFT_Y, -FLANGE_Z)), (0, 0, 0), (1, 0, 0), -90)
+
+# S1 + chassis pad (on the robot S1 is bolted to the body; shown here as a pad)
+place(moved(servo(), (-SHAFT_X, -SHAFT_Y, -SV_H)), "Servo_S1", 70)
+place(rotated(horn(), (0, 0, 0), (1, 0, 0), 90), "Horn_S1", 30)
+ch = moved(box(70, 40, 5), (-35, -20, -SV_H + FLANGE_Z - 5))
+for hx in (-HOX, HOX):
+    for hy in (-HOY, HOY):
+        ch = ch.cut(cyl(FLANGE_D / 2, 8, (hx, hy, -SV_H + FLANGE_Z - 6)))
+place(ch, "Chassis", 60)
+
+place(rotated(moved(coxa(), (-COXA_S1[0], -COXA_S1[1], 0)), (0, 0, 0), (0, 0, 1), yaw), "CoxaArm")
+
+cmx = COXA_MNT_X - COXA_S1[0]; cmy0 = (COXA_MNT_Y[0] + COXA_MNT_Y[1]) / 2 - COXA_S1[1]; ctz = 9.0
+O = (cmx - FB_BHX, cmy0 - (FB_BHY[0] + FB_BHY[1]) / 2, ctz)
+place(rotated(moved(bracket(), O), (0, 0, 0), (0, 0, 1), yaw), "FemurBracket")
+
+S2 = (O[0] + FB_S2_X, O[1] + FB_FLANGE_Y, O[2] + FB_S2_Z)
+place(rotated(moved(servo_flange(), S2), (0, 0, 0), (0, 0, 1), yaw), "Servo_S2", 70)
+place(rotated(moved(horn(), (S2[0], S2[1] + TOPSEC, S2[2])), (0, 0, 0), (0, 0, 1), yaw), "Horn_S2", 30)
+
+def F(s):
+    s = rotated(s, (0, 0, 0), (0, 1, 0), -fem_a)
+    s = moved(s, S2)
+    return rotated(s, (0, 0, 0), (0, 0, 1), yaw)
+
+place(F(moved(femur(), (0, LINK_OFFSET, 0))), "Femur")
+place(F(moved(servo_flange(), (L_FEM, LINK_OFFSET, 0))), "Servo_S3", 70)
+place(F(moved(horn(), (L_FEM, LINK_OFFSET + TOPSEC, 0))), "Horn_S3", 30)
+tib = rotated(tibia(), (0, 0, 0), (0, 1, 0), -tib_a)
+place(F(moved(tib, (L_FEM, 2 * LINK_OFFSET, 0))), "Tibia")
+
+doc.recompute()
+if HAVE_GUI:
+    try: Gui.SendMsgToActiveView("ViewFit")
+    except Exception: pass
+print("Assembly: servos held by flanges in brackets; links on horns; S1 on the chassis pad.")

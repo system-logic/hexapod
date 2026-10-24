@@ -1,0 +1,60 @@
+# ============================================================
+#  Tibia — shin with foot. PRINT.
+#  Hub on the S3 horn (with pocket). The foot is FUSED to the bar:
+#  flat pad + socket underneath for a rubber tip.
+#  Shin length is set by L_TIB (for a ~30 cm robot).
+# ============================================================
+import FreeCAD as App
+import Part
+
+doc = App.ActiveDocument
+if doc is None:
+    doc = App.newDocument("SpiderLeg")
+
+V = App.Vector
+
+# ---------- PARAMETERS (editable) ----------
+L_TIB = 100.0                                   # shin length (S3 axis -> bottom of foot)
+tib_t = 5.0                                      # plate thickness (Y)
+tib_w = 22.0                                     # top width (Z at the hub)
+HUB_T = 8.0                                      # hub thickness (holds the pocket)
+foot_h = 10.0                                    # foot pad height
+foot_r = 10.0                                    # foot pad radius
+tip_d, tip_depth = 11.0, 6.0                     # socket for the rubber tip
+
+# ---- S3 horn interface ----
+HORN_R, HORN_HOLE_D, HORN_CLR = 7.0, 2.4, 9.0    # 4 x M2 + centre clearance
+HORN_POCKET_D, HORN_POCKET_DEPTH = 22.0, 4.5     # horn pocket
+
+# ---------- GEOMETRY ----------
+bar_bottom = -(L_TIB - foot_h)                   # the bar reaches the pad (no gap)
+top = Part.makeBox(tib_w, tib_t, 16); top.translate(V(-tib_w / 2, 0, -8))
+bar = Part.makeBox(14, tib_t, -bar_bottom); bar.translate(V(-7, 0, bar_bottom))
+tibia = top.fuse(bar)
+
+# hub on the S3 horn (centre 0,0) + pocket
+tibia = tibia.fuse(Part.makeCylinder(14, HUB_T, V(0, 0, 0), V(0, 1, 0)))
+hub_h = HUB_T + 2
+for dx, dz in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+    tibia = tibia.cut(Part.makeCylinder(HORN_HOLE_D / 2, hub_h, V(dx, -1, dz), V(0, 1, 0)))
+tibia = tibia.cut(Part.makeCylinder(HORN_CLR / 2, hub_h, V(0, -1, 0), V(0, 1, 0)))
+tibia = tibia.cut(Part.makeCylinder(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, V(0, -0.05, 0), V(0, 1, 0)))
+
+# FOOT: flat pad fused to the bar (z = bar_bottom .. -L_TIB)
+pad = Part.makeCylinder(foot_r, foot_h, V(0, tib_t / 2, -L_TIB), V(0, 0, 1))
+tibia = tibia.fuse(pad)
+# socket underneath for the rubber tip
+tibia = tibia.cut(Part.makeCylinder(tip_d / 2, tip_depth, V(0, tib_t / 2, -L_TIB - 0.05), V(0, 0, 1)))
+
+# lightening hole in the bar
+tibia = tibia.cut(Part.makeCylinder(4, tib_t + 2, V(0, -1, -(L_TIB / 2)), V(0, 1, 0)))
+
+# ---------- OUTPUT ----------
+obj = Part.show(tibia, "Tibia")
+doc.recompute()
+try:
+    import FreeCADGui as Gui
+    Gui.SendMsgToActiveView("ViewFit")
+except Exception:
+    pass
+print("Tibia: done. One-piece foot with a rubber-tip socket. Print flat face down.")

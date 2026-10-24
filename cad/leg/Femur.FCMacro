@@ -1,0 +1,55 @@
+# ============================================================
+#  Femur — thigh link (S2 -> S3). PRINT.
+#  Proximal end: hub on the S2 horn (pocket + 4 x M2).
+#  Distal end: FLANGE OPENING for S3 (4 holes 49.5 x 10 + body window).
+# ============================================================
+import FreeCAD as App
+import Part
+
+doc = App.ActiveDocument
+if doc is None:
+    doc = App.newDocument("SpiderLeg")
+V = App.Vector
+
+# ---------- PARAMETERS ----------
+L_FEM = 75.0                                    # femur length (S2 axis -> S3 axis)
+plate_t, plate_w = 6.0, 30.0                    # plate (Y thickness, Z height)
+HUB_T = 8.0                                      # hub thickness (holds the horn pocket)
+HORN_R, HORN_HOLE_D, HORN_CLR = 7.0, 2.4, 9.0    # S2 horn
+HORN_POCKET_D, HORN_POCKET_DEPTH = 22.0, 4.5     # horn pocket
+# S3 flange (same as DS3218):
+HOLE_DX, HOLE_DY, FLANGE_D = 49.5, 10.0, 3.2
+HOX, HOY = HOLE_DX / 2, HOLE_DY / 2
+CUT_L, CUT_W = 42.0, 22.0
+
+# ---------- GEOMETRY ----------
+femur = Part.makeBox(L_FEM + 48, plate_t, plate_w); femur.translate(V(-16, 0, -plate_w / 2))
+
+# proximal hub on the S2 horn + pocket
+femur = femur.fuse(Part.makeCylinder(14, HUB_T, V(0, 0, 0), V(0, 1, 0)))
+hub_h = HUB_T + 2
+for dx, dz in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+    femur = femur.cut(Part.makeCylinder(HORN_HOLE_D / 2, hub_h, V(dx, -1, dz), V(0, 1, 0)))
+femur = femur.cut(Part.makeCylinder(HORN_CLR / 2, hub_h, V(0, -1, 0), V(0, 1, 0)))
+femur = femur.cut(Part.makeCylinder(HORN_POCKET_D / 2, HORN_POCKET_DEPTH + 0.1, V(0, -0.05, 0), V(0, 1, 0)))
+
+# distal flange joint for S3: body window + 4 holes
+h = plate_t + 2
+cut = Part.makeBox(CUT_L, h, CUT_W); cut.translate(V(L_FEM - CUT_L / 2, -1, -CUT_W / 2))
+femur = femur.cut(cut)
+for hx in (L_FEM - HOX, L_FEM + HOX):
+    for hz in (-HOY, HOY):
+        femur = femur.cut(Part.makeCylinder(FLANGE_D / 2, h, V(hx, -1, hz), V(0, 1, 0)))
+
+# lightening slot between the hub and the window
+slot = Part.makeBox(28, plate_t + 2, 12); slot.translate(V(18, -1, -6))
+femur = femur.cut(slot)
+
+obj = Part.show(femur, "Femur")
+doc.recompute()
+try:
+    import FreeCADGui as Gui
+    Gui.SendMsgToActiveView("ViewFit")
+except Exception:
+    pass
+print("Femur: S2 horn at the proximal end, S3 flange at the distal end. Print flat face down.")

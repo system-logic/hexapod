@@ -1,0 +1,32 @@
+# ============================================================
+#  Horn — round servo horn (reference / assembly only).
+#  A metal horn normally COMES WITH the DS3218 — use that one.
+#  Print this only as a spare or for test fitting.
+# ============================================================
+import FreeCAD as App
+import Part
+
+doc = App.ActiveDocument
+if doc is None:
+    doc = App.newDocument("SpiderLeg")
+V = App.Vector
+
+# ---------- PARAMETERS ----------
+DISC_D, DISC_T = 22.0, 5.0                       # horn disc
+SPLINE_BORE = 6.0                                # for the 25T spline (ream to fit)
+HORN_R, HORN_HOLE_D = 7.0, 2.4                   # 4 x M2 holes to the link
+
+# ---------- GEOMETRY ----------
+horn = Part.makeCylinder(DISC_D / 2, DISC_T, V(0, 0, 0), V(0, 0, 1))
+horn = horn.cut(Part.makeCylinder(SPLINE_BORE / 2, DISC_T + 2, V(0, 0, -1), V(0, 0, 1)))
+for dx, dy in ((HORN_R, 0), (-HORN_R, 0), (0, HORN_R), (0, -HORN_R)):
+    horn = horn.cut(Part.makeCylinder(HORN_HOLE_D / 2, DISC_T + 2, V(dx, dy, -1), V(0, 0, 1)))
+
+obj = Part.show(horn, "Horn")
+doc.recompute()
+try:
+    import FreeCADGui as Gui
+    Gui.SendMsgToActiveView("ViewFit")
+except Exception:
+    pass
+print("Horn: reference horn. Prefer the stock metal horn supplied with the servo.")
