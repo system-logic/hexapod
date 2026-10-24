@@ -5,6 +5,9 @@ board the robot and handles stereo depth and object detection; heavier AI
 workloads run on a local PC over Wi-Fi. Motion control (gait, servos) lives on
 an STM32F4-Discovery and is not part of this module.
 
+> **Note:** this is first-draft code. It has not yet been run on the robot and will be
+> reworked as the build goes on.
+
 What changed compared to the single-camera version:
 - **Two cameras** ("like two eyes") instead of one — `stereo_camera.py`.
 - **Metric depth** from the stereo pair instead of relative MiDaS depth — `stereo_depth.py`.

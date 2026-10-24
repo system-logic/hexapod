@@ -11,6 +11,10 @@ macro, so dimensions can be changed in one place and the STL files rebuilt.
 **Status: work in progress.** The mechanics and the vision code exist; walking
 does not yet. See [Status](#status) for exactly what is done and what is not.
 
+> **Note:** all code in this repository — the FreeCAD macros, the build scripts and
+> the vision pipeline — is a first draft. It will be reworked and refined as the
+> robot is built and tested, so expect dimensions, interfaces and file layout to change.
+
 Author: Evgenii Zagorodskikh.
 
 ---
